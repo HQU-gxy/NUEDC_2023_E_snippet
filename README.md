@@ -27,7 +27,8 @@ environment variable. Maybe it would make your life easier.
 ```powershell
 mkdir build
 cd build
-cmake .. -G Ninja -DOpenCV_DIR="C:\msys64\mingw64"
+# clang which comes with Visual Studio 2019 is not happy with Mingw-w64
+cmake .. -G Ninja -DOpenCV_DIR="C:\msys64\mingw64" -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_COMPILER=gcc
 ninja -j (Invoke-Expression [Environment]::ProcessorCount)
 ```
 

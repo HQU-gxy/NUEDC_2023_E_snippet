@@ -1,7 +1,10 @@
-cmake_minimum_required(VERSION 3.15...3.19)
+cmake_minimum_required(VERSION 3.20)
 project(rect)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
 # https://packages.msys2.org/package/mingw-w64-x86_64-opencv
 # pacman -S mingw-w64-x86_64-opencv
