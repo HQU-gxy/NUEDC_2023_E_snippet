@@ -1,4 +1,5 @@
 #include <CLI/CLI.hpp>
+#include <concepts>
 #include <cstdint>
 #include <format>
 #include <opencv2/core/matx.hpp>
@@ -50,6 +51,19 @@ const auto Purple = Color(0x8000ff);
 const auto Pink = Color(0xff0080);
 const auto Azure = Color(0x0080ff);
 }; // namespace Colors
+
+// - https://www.reedbeta.com/blog/ranges-compatible-containers/
+// - https://en.cppreference.com/w/cpp/ranges/slide_view
+//
+// a view whose `M` th element is a view over the `M` th through `(M + N - 1)`
+// th elements of another view
+template <std::ranges::viewable_range R>
+constexpr std::ranges::view auto slide_view(R &&r, size_t sz) {
+  return std::views::iota(0u, std::ranges::distance(r) - sz + 1) |
+         std::views::transform([&, i = 0u](auto) mutable {
+           return std::span(&*std::ranges::begin(r) + i++, sz);
+         });
+}
 }; // namespace utils
 
 std::string get_fourcc_name(int32_t fourcc) {
@@ -72,7 +86,7 @@ auto detect_circles(cv::Mat &img) -> std::vector<cv::Vec3f> {
 
 void draw_circles(
     cv::Mat &img, const std::vector<cv::Vec3f> &circles,
-    std::optional<std::deque<cv::Point>> last_state = std::nullopt) {
+    std::optional<std::vector<cv::Point>> last_state = std::nullopt) {
   using namespace utils;
   const auto red = Colors::Red.toBGR();
   for (const auto &c : circles) {
@@ -81,9 +95,10 @@ void draw_circles(
     const auto r = c[2];
     const auto center = cv::Point(x, y);
     const auto radius = r;
-    cv::circle(img, center, radius, red, MAX_TAIL_THICKNESS);
+    cv::circle(img, center, radius, red, 2);
     if (last_state.has_value()) {
-      last_state.value().emplace_front(center);
+      // might be expensive
+      last_state.value().insert(last_state.value().begin(), center);
       if (last_state.value().size() > MAX_TAIL_SIZE) {
         last_state.value().pop_back();
       }
@@ -91,14 +106,16 @@ void draw_circles(
   }
   if (last_state.has_value()) {
     auto thickness = MAX_TAIL_THICKNESS;
-    const auto sz = static_cast<int>(last_state.value().size());
-    const auto circle_sz = static_cast<int>(circles.size());
-    assert(sz >= circle_sz);
-    for (auto i : std::ranges::iota_view(circle_sz, sz)) {
-      auto el = last_state.value()[i];
+    size_t i = 0;
+    const auto window_sz = 2;
+    auto slide = utils::slide_view(std::span(last_state.value()), window_sz);
+    // https://en.cppreference.com/w/cpp/ranges/slide_view
+    // https://medium.com/@simontoth/daily-bit-e-of-c-std-views-adjacent-std-views-pairwise-809363044218
+    for (const auto ps : slide) {
       thickness = static_cast<int>(
           std::sqrt(MAX_TAIL_THICKNESS / static_cast<float>(i + 1)) * 2.5);
-      cv::circle(img, el, 1, red, thickness);
+      cv::line(img, ps[0], ps[1], red, thickness);
+      i += 1;
     }
   }
 }
