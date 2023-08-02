@@ -3,6 +3,9 @@ project(rect)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# https://packages.msys2.org/package/mingw-w64-x86_64-opencv
+# pacman -S mingw-w64-x86_64-opencv
+# in MSYS2 MinGW x64
 if(DEFINED OpenCV_DIR)
     find_package(OpenCV REQUIRED PATHS ${OpenCV_DIR})
 else()
