@@ -1,9 +1,56 @@
 #include <CLI/CLI.hpp>
 #include <cstdint>
 #include <format>
+#include <opencv2/core/matx.hpp>
+#include <opencv2/core/types.hpp>
+#include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
+#include <optional>
+#include <ranges>
 #include <ratio>
+#include <span>
 #include <spdlog/spdlog.h>
+#include <vector>
+
+constexpr auto MAX_TAIL_SIZE = 10;
+constexpr auto MAX_TAIL_THICKNESS = 4;
+
+namespace utils {
+struct Color {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+
+  Color(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b) {}
+  Color(uint32_t rgb) {
+    r = (rgb >> 16) & 0xff;
+    g = (rgb >> 8) & 0xff;
+    b = rgb & 0xff;
+  }
+
+  /**
+   * @brief convert to uint32_t
+   * @return implicit conversion. operator overloading.
+   */
+  operator uint32_t() const { return (r << 16) | (g << 8) | b; }
+
+  cv::Vec3f toBGR() const { return cv::Vec3f(b, g, r); }
+};
+namespace Colors {
+const auto Red = Color(0xff0000);
+const auto Green = Color(0x00ff00);
+const auto Blue = Color(0x0000ff);
+const auto White = Color(0xffffff);
+const auto Cyan = Color(0x00ffff);
+const auto Magenta = Color(0xff00ff);
+const auto Yellow = Color(0xffff00);
+const auto Amber = Color(0xffbf00);
+const auto Orange = Color(0xff8000);
+const auto Purple = Color(0x8000ff);
+const auto Pink = Color(0xff0080);
+const auto Azure = Color(0x0080ff);
+}; // namespace Colors
+}; // namespace utils
 
 std::string get_fourcc_name(int32_t fourcc) {
   std::string s;
@@ -12,6 +59,65 @@ std::string get_fourcc_name(int32_t fourcc) {
   s += static_cast<char>((fourcc >> 16) & 0xFF);
   s += static_cast<char>((fourcc >> 24) & 0xFF);
   return s;
+}
+
+auto detect_circles(cv::Mat &img) -> std::vector<cv::Vec3f> {
+  std::vector<cv::Vec3f> ret;
+  // https://docs.opencv.org/3.4/d6/d50/classcv_1_1Size__.html
+  // height first
+  const auto [h, w] = img.size();
+  cv::HoughCircles(img, ret, cv::HOUGH_GRADIENT, 2, h * 2, 300, 0.9, 5, 10);
+  return ret;
+}
+
+void draw_circles(
+    cv::Mat &img, const std::vector<cv::Vec3f> &circles,
+    std::optional<std::deque<cv::Point>> last_state = std::nullopt) {
+  using namespace utils;
+  const auto red = Colors::Red.toBGR();
+  for (const auto &c : circles) {
+    const auto x = c[0];
+    const auto y = c[1];
+    const auto r = c[2];
+    const auto center = cv::Point(x, y);
+    const auto radius = r;
+    cv::circle(img, center, radius, red, MAX_TAIL_THICKNESS);
+    if (last_state.has_value()) {
+      last_state.value().emplace_front(center);
+      if (last_state.value().size() > MAX_TAIL_SIZE) {
+        last_state.value().pop_back();
+      }
+    }
+  }
+  if (last_state.has_value()) {
+    auto thickness = MAX_TAIL_THICKNESS;
+    const auto sz = static_cast<int>(last_state.value().size());
+    const auto circle_sz = static_cast<int>(circles.size());
+    assert(sz >= circle_sz);
+    for (auto i : std::ranges::iota_view(circle_sz, sz)) {
+      auto el = last_state.value()[i];
+      thickness = static_cast<int>(
+          std::sqrt(MAX_TAIL_THICKNESS / static_cast<float>(i + 1)) * 2.5);
+      cv::circle(img, el, 1, red, thickness);
+    }
+  }
+}
+
+/**
+ * @brief
+ *
+ * @param in    input image. won't be modified
+ * @param out   output image.
+ * @param lower color in LAB color space three dimension
+ * @param upper color in LAB color space three dimension
+ */
+void handle_image_color_range(const cv::Mat &in, cv::Mat &out,
+                              const cv::Scalar &lower,
+                              const cv::Scalar &upper) {
+  cv::GaussianBlur(in, out, cv::Size(5, 5), 2, 2);
+  cv::cvtColor(out, out, cv::COLOR_BGR2Lab);
+  cv::inRange(out, lower, upper, out);
+  cv::GaussianBlur(out, out, cv::Size(5, 5), 2, 2);
 }
 
 int main() {
@@ -57,11 +163,11 @@ int main() {
   spdlog::info(
       "Set capture width: {}, height: {}, fps: {}, fourcc: {:#02x}({})", width,
       height, fps, fourcc, get_fourcc_name(fourcc));
-  auto w = cap.get(cv::CAP_PROP_FRAME_WIDTH);
-  auto h = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
-  auto f = cap.get(cv::CAP_PROP_FPS);
-  auto cc = static_cast<uint32_t>(cap.get(cv::CAP_PROP_FOURCC));
-  auto cc_s = get_fourcc_name(cc);
+  const auto w = cap.get(cv::CAP_PROP_FRAME_WIDTH);
+  const auto h = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+  const auto f = cap.get(cv::CAP_PROP_FPS);
+  const auto cc = static_cast<uint32_t>(cap.get(cv::CAP_PROP_FOURCC));
+  const auto cc_s = get_fourcc_name(cc);
   spdlog::info(
       "Get Capture width: {}, height: {}, fps: {}, fourcc: {:#02x}({})", w, h,
       f, cc, cc_s);
