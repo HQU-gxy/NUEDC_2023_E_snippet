@@ -28,11 +28,7 @@ def serialize(id: int, flag: int, data: bytes):
     # check if is python 3.10 or above
     import sys
     if sys.version_info >= (3, 10):
-        match get_flag_width(flag):
-            case FlagWidth.CHAR:
-                fmt = ">BB{}s".format(len(data))
-            case FlagWidth.SHORT:
-                fmt = ">BH{}s".format(len(data))
+        pass
     else:
         if flag <= 0xff:
             fmt = ">BB{}s".format(len(data))
@@ -89,7 +85,7 @@ def ctrl_speed_with_pulse_count_pkt(id: int, direction: Direction, speed: int, p
     direction = direction.value
     assert (speed >= 0 and speed < 128)
     s = ((direction & 0x01) << 7) | (speed & 0xff)
-    data = struct.pack('>B3s', s, pulse_count.to_bytes(3, 'big'))
+    data = struct.pack('>BH', s, pulse_count)
     return serialize(id, CTRL_SPEED_WITH_PULSE_CNT, data)
 
 

@@ -100,7 +100,7 @@ class Motor:
         # 支持 1~256 任意细分
         # 设置细分步数(默认16细分)
         self.last_position_deg = self.last_position_deg + delta_deg
-        pulse = degree_to_pulse(delta_deg, self.division)
+        pulse = abs(degree_to_pulse(delta_deg, self.division)) 
         direction = self._positive_direction if delta_deg > 0 else reverse_direction(
             self._positive_direction)
         self.protocol.ctrl_speed_with_pulse_count(
@@ -130,6 +130,7 @@ class RotateTiltMotor:
     # https://stackoverflow.com/questions/34377319/combine-awaitables-like-promise-all
     async def delta_degree(self, speed: int, rotate_delta: float, tilt_delta: float):
         self.rotate_motor.delta_degree(speed, rotate_delta)
+        await asyncio.sleep(0.0025)
         self.tilt_motor.delta_degree(speed, tilt_delta)
 
     async def to_degree(self, speed: int, rotate_degree: float, tilt_degree: float):

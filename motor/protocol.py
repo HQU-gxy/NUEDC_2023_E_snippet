@@ -120,8 +120,10 @@ class MotorProtocol(asyncio.Protocol):
         self.transport.write(data)
 
     def ctrl_speed_with_pulse_count(self, id: int, direction: Direction, speed: int, pulse_count: int):
+        assert(pulse_count > 0)
         data = ctrl_speed_with_pulse_count_pkt(
             id, direction, speed, pulse_count)
+        logger.debug("data: {}".format(hex_bytes(data)))
         logger.debug("[{:02x}] direction:{} speed:{} pulse_count:{}".format(
             id, direction, speed, pulse_count))
         self.transport.write(data)
