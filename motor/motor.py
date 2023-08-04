@@ -35,6 +35,7 @@ class Motor:
     degree_max: Optional[float]
     degree_min: Optional[float]
     division: int
+    _positive_direction: Direction
 
     def __init__(self, id: int, protocol: MotorProtocol, division: int = 16) -> None:
         MAX_POS_ABS = 18
@@ -46,6 +47,10 @@ class Motor:
         self.degree_min = None
         self.division = division
         self.protocol.register_device(self.id)
+        self._positive_direction = Direction.CW
+
+    def set_positive_direction(self, direction: Direction):
+        self._positive_direction = direction
 
     def begin(self):
         self.set_division(self.division)
@@ -96,8 +101,10 @@ class Motor:
         # 设置细分步数(默认16细分)
         self.last_position_deg = self.last_position_deg + delta_deg
         pulse = degree_to_pulse(delta_deg, self.division)
+        direction = self._positive_direction if delta_deg > 0 else reverse_direction(
+            self._positive_direction)
         self.protocol.ctrl_speed_with_pulse_count(
-            self.id, Direction.CW if delta_deg > 0 else Direction.CCW, speed, pulse)
+            self.id, direction, speed, pulse)
 
     def set_degree_range(self, degree_min: float, degree_max: float):
         assert degree_min < degree_max
