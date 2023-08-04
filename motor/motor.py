@@ -6,6 +6,7 @@ from .mapper import PiecewiseLinearParams, ExtremumParams, piecewise_linear_mapp
 from .utils import Instance
 from loguru import logger
 import asyncio
+from typing import Optional, Tuple
 
 
 @dataclass
@@ -47,7 +48,8 @@ class Motor:
         self.degree_max = None
         self.degree_min = None
 
-    async def to_degree(self, degree: float, precision):
+    async def to_degree(self, degree: float, precision: Optional[float] = None):
+        precision = precision or self.precision
         if self.degree_max is not None:
             degree = min(degree, self.degree_max)
         if self.degree_min is not None:
@@ -97,6 +99,11 @@ class Motor:
             precision = self.precision
         await self.to_degree(self.last_position_deg + delta, self.precision)
 
+    def set_degree_range(self, degree_min: float, degree_max: float):
+        assert degree_min < degree_max
+        self.degree_min = degree_min
+        self.degree_max = degree_max
+
 
 class RotateTiltMotor:
     rotate_motor: Motor
@@ -112,3 +119,13 @@ class RotateTiltMotor:
             self.rotate_motor.delta_degree(rotate_delta),
             self.tilt_motor.delta_degree(tilt_delta)
         )
+
+    async def to_degree(self, rotate_degree: float, tilt_degree: float):
+        await asyncio.gather(
+            self.rotate_motor.to_degree(rotate_degree),
+            self.tilt_motor.to_degree(tilt_degree)
+        )
+
+    def set_degree_range(self, rotate_degree_range: Tuple[float, float], tilt_degree_range: Tuple[float, float]):
+        self.rotate_motor.set_degree_range(*rotate_degree_range)
+        self.tilt_motor.set_degree_range(*tilt_degree_range)
