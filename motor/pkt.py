@@ -25,11 +25,21 @@ def get_flag_width(flag: int) -> FlagWidth:
 def serialize(id: int, flag: int, data: bytes):
     assert id >= 0 and id <= 255
     fmt: str
-    match get_flag_width(flag):
-        case FlagWidth.CHAR:
+    # check if is python 3.10 or above
+    import sys
+    if sys.version_info >= (3, 10):
+        match get_flag_width(flag):
+            case FlagWidth.CHAR:
+                fmt = ">BB{}s".format(len(data))
+            case FlagWidth.SHORT:
+                fmt = ">BH{}s".format(len(data))
+    else:
+        if flag <= 0xff:
             fmt = ">BB{}s".format(len(data))
-        case FlagWidth.SHORT:
+        elif flag <= 0xffff:
             fmt = ">BH{}s".format(len(data))
+        else:
+            raise ValueError("invalid flag: {}".format(flag))
     packet = struct.pack(fmt, id, flag, data)
     return packet
 
