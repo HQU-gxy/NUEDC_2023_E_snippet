@@ -3,7 +3,7 @@ from .pkt import *
 from typing import Optional
 from .protocol import MotorProtocol, Direction
 from .mapper import PiecewiseLinearParams, ExtremumParams, piecewise_linear_mapper
-from .utils import Instance
+from .utils import Instant
 from loguru import logger
 import asyncio
 from typing import Optional, Tuple, Union
@@ -31,7 +31,7 @@ class Motor:
     id: int
     protocol: MotorProtocol
     last_position_deg: float
-    last_write: Instance
+    last_write: Instant
     degree_max: Optional[float]
     degree_min: Optional[float]
     division: int
@@ -42,7 +42,7 @@ class Motor:
         self.id = id
         self.protocol = protocol
         self.last_position_deg = 0.0
-        self.last_write = Instance()
+        self.last_write = Instant()
         self.degree_max = None
         self.degree_min = None
         self.division = division

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-class Instance:
+class Instant:
     time: datetime
 
     def __init__(self) -> None:
