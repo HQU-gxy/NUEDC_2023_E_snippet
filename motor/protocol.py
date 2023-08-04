@@ -4,7 +4,9 @@ from asyncio_channel import create_channel
 from asyncio_channel._channel import Channel
 from .utils import hex_bytes
 from .pkt import *
-from typing import Optional, Tuple, Union, List, Dict
+from typing import Optional, Tuple, Union, List, Dict, Callable, TypeVar
+
+T = TypeVar('T')
 
 
 class MotorProtocol(asyncio.Protocol):
@@ -12,142 +14,86 @@ class MotorProtocol(asyncio.Protocol):
 
     def __init__(self) -> None:
         super().__init__()
-        _chans = {}
+        self._chans = {}
 
     def connection_made(self, transport):
         self.transport = transport
         logger.info('port opened')
-        transport.serial.rts = False # type: ignore
+        transport.serial.rts = False  # type: ignore
 
     def data_received(self, data):
-        flag_str = "T" if self._chan_recv_flag else "F"
-        logger.debug("[{}] received: {}".format(flag_str, hex_bytes(data)))
+        logger.debug("[received] {}".format(hex_bytes(data)))
         id = data[0]
         if (id in self._chans):
             ok, chan = self._chans[id]
             if ok:
-               chan.offer(data)
+                chan.offer(data)
             else:
-               logger.warning("{:02x} channel not ready".format(id))
+                logger.warning("{:02x} channel not ready".format(id))
         else:
             logger.warning("{:02x} channel not registered".format(id))
 
     def connection_lost(self, exc):
         logger.info('port closed')
-        self.transport.loop.stop() # type: ignore
+        self.transport.loop.stop()  # type: ignore
 
     def pause_writing(self):
         logger.debug('pause writing; buffer size {}',
-                     self.transport.get_write_buffer_size()) # type: ignore
+                     self.transport.get_write_buffer_size())  # type: ignore
 
     def resume_writing(self):
         logger.debug('resume writing; buffer size {}',
-                     self.transport.get_write_buffer_size()) # type: ignore
+                     self.transport.get_write_buffer_size())  # type: ignore
 
     def register_device(self, id: int):
+        logger.info("register device {:02x}".format(id))
         self._chans[id] = (False, create_channel())
 
-    async def read_encoder(self, id: int):
+    async def read_wrapper(self, id: int, write_cb: Callable[[], None], handler: Callable[[bytes], T]):
         if (id not in self._chans):
             raise Exception("device {:02x} not registered".format(id))
         try:
-            data = read_encoder_pkt(id)
-            self._chan_recv_flag = True
-            self.transport.write(data) # type: ignore
+            _, chan = self._chans[id]
+            self._chans[id] = (True, chan)
+            write_cb()
             res = await self._chans[id][1].take()
             assert isinstance(res, bytes)
-            self._chan_recv_flag = False
-            fmt = "!BH"
-            encoder: int
-            _, encoder = struct.unpack(fmt, res)
-            return encoder
+            self._chans[id] = (False, chan)
+            return handler(res)
         except KeyboardInterrupt:
-            self._chan_recv_flag = False
+            _, chan = self._chans[id]
+            self._chans[id] = (False, chan)
             raise KeyboardInterrupt
         except Exception as e:
-            self._chan_recv_flag = False
+            _, chan = self._chans[id]
+            self._chans[id] = (False, chan)
             logger.error(e)
             await asyncio.sleep(0.02)
             return await self.read_encoder(id)
 
+    async def read_encoder(self, id: int):
+        return await self.read_wrapper(id, lambda: self.transport.write(read_encoder_pkt(id)),
+                                       lambda res: struct.unpack("!BH", res)[1])
+
     async def read_input_pulse_count(self, id: int):
-        if (id not in self._chans):
-            raise Exception("device {:02x} not registered".format(id))
-        try:
-            data = read_input_pulse_count_pkt(id)
-            self._chan_recv_flag = True
-            self.transport.write(data) # type: ignore
-            res = await self._chans[id][1].take()
-            assert isinstance(res, bytes)
-            self._chan_recv_flag = False
-            fmt = "!BI"
-            input_pulse_count: int
-            _, input_pulse_count = struct.unpack(fmt, res)
-            return input_pulse_count
-        except KeyboardInterrupt:
-            self._chan_recv_flag = False
-            raise KeyboardInterrupt
-        except Exception as e:
-            self._chan_recv_flag = False
-            logger.error(e)
-            await asyncio.sleep(0.02)
-            return await self.read_input_pulse_count(id)
+        return await self.read_wrapper(id, lambda: self.transport.write(read_input_pulse_count_pkt(id)),
+                                       lambda res: struct.unpack("!BI", res)[1])
 
     # unit: max_uint16_t / 360
     # i.e. 65535 for a full circle
     # 655350 for 10 circles
     async def read_position(self, id: int):
-        if (id not in self._chans):
-            raise Exception("device {:02x} not registered".format(id))
-        try:
-            data = read_position_pkt(id)
-            self._chan_recv_flag = True
-            self.transport.write(data)
-            res = await self._chans[id][1].take()
-            self._chan_recv_flag = False
-            # signed
-            # positive: CW
-            # negative: CCW
-            # i.e. CW would make the position decrease
-            fmt = "!Bi"
-            position: int
-            _, position = struct.unpack(fmt, res)
-            return position
-        except KeyboardInterrupt:
-            self._chan_recv_flag = False
-            raise KeyboardInterrupt
-        except Exception as e:
-            self._chan_recv_flag = False
-            logger.error(e)
-            await asyncio.sleep(0.02)
-            return await self.read_position(id)
-    
+        return await self.read_wrapper(id, lambda: self.transport.write(read_position_pkt(id)),
+                                       lambda res: struct.unpack("!BI", res)[1])
+
     async def read_position_deg(self, id: int):
         pos = await self.read_position(id)
         return pos / 65535 * 360
 
     # unit: max_uint16_t / 360
     async def read_position_err(self, id: int):
-        if (id not in self._chans):
-            raise Exception("device {:02x} not registered".format(id))
-        try:
-            data = read_position_error_pkt(id)
-            self._chan_recv_flag = True
-            self.transport.write(data)
-            res = await self._chans[id][1].take()
-            self._chan_recv_flag = False
-            fmt = "!BH"
-            position_err: int
-            _, position_err = struct.unpack(fmt, res)
-            return position_err
-        except KeyboardInterrupt:
-            self._chan_recv_flag = False
-            raise KeyboardInterrupt
-        except Exception as e:
-            self._chan_recv_flag = False
-            logger.error(e)
-            await asyncio.sleep(0.02)
-            return await self.read_position_err(id)
+        return await self.read_wrapper(id, lambda: self.transport.write(read_position_err_pkt(id)),
+                                       lambda res: struct.unpack("!BH", res)[1])
 
     # 0: error
     # 1: enabled
