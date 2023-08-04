@@ -49,14 +49,14 @@ class MotorProtocol(asyncio.Protocol):
         logger.info("register device {:02x}".format(id))
         self._chans[id] = (False, create_channel())
 
-    async def read_wrapper(self, id: int, write_cb: Callable[[], None], handler: Callable[[bytes], T]):
+    async def read_wrapper(self, id: int, write_cb: Callable[[], None], handler: Callable[[bytes], T], timeout: float = 0.1):
         if (id not in self._chans):
             raise Exception("device {:02x} not registered".format(id))
         try:
             _, chan = self._chans[id]
             self._chans[id] = (True, chan)
             write_cb()
-            res = await self._chans[id][1].take()
+            res = await self._chans[id][1].take(timeout=timeout)
             assert isinstance(res, bytes)
             self._chans[id] = (False, chan)
             return handler(res)
@@ -82,9 +82,9 @@ class MotorProtocol(asyncio.Protocol):
     # unit: max_uint16_t / 360
     # i.e. 65535 for a full circle
     # 655350 for 10 circles
-    async def read_position(self, id: int):
+    async def read_position(self, id: int, timeout: float = 0.1):
         return await self.read_wrapper(id, lambda: self.transport.write(read_position_pkt(id)),
-                                       lambda res: struct.unpack("!Bi", res)[1])
+                                       lambda res: struct.unpack("!Bi", res)[1], timeout=timeout)
 
     async def read_position_deg(self, id: int):
         pos = await self.read_position(id)

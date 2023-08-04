@@ -22,6 +22,7 @@ def main(port: str, baudrate: int):
     ID = 0xe0
     ERR = 0.04
     motor = Motor(ID, protocol)
+    motor.begin()
 
     async def send_test():
         import random
