@@ -20,34 +20,53 @@ def main(port: str, baudrate: int):
     async def to_zero(id:int):
         direction = Direction.CCW
         spd = 10
-        MAP_SPD = 120
-        MIN_SPD = 1
-        MAP_POS = 1080
-
+        MAX_SPD = 120
+        MIN_SPD = 0
+        MAX_POS_ABS = 1080
+        MAX_DELAY = 0.1
+        MIN_DELAY = 0.005
+        def pos_spd_map(pos:int):
+          spd = int((abs(pos) / MAX_POS_ABS) * MAX_SPD)
+          if spd < MIN_SPD:
+            spd = MIN_SPD
+          return spd
+        def pos_delay_map(pos:int):
+          delay = (abs(pos) / MAX_POS_ABS) * MAX_DELAY
+          if delay < MIN_DELAY:
+            delay = MIN_DELAY
+          return delay
         protocol.ctrl_speed(id, direction, spd)
         while True:
-            ERR = 0.1
+            ERR = 0.9
             await asyncio.sleep(0.01)
             pos = await protocol.read_position_deg(id)
             logger.debug("pos: {}".format(pos))
             await asyncio.sleep(0.01)
-            if abs(pos) < 1:
+            if abs(pos) < ERR:
               break
             if pos > 0:
               if direction == Direction.CCW:
                 direction = reverse_direction(direction)
+                spd = pos_spd_map(pos)
                 protocol.ctrl_speed(id, direction, spd)
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(pos_delay_map(pos))
             else:
               if direction == Direction.CW:
                 direction = reverse_direction(direction)
+                spd = pos_spd_map(pos)
                 protocol.ctrl_speed(id, direction, spd)
-                await asyncio.sleep(0.01)
-            await asyncio.sleep(0.5)
+                await asyncio.sleep(pos_delay_map(pos))
+            await asyncio.sleep(pos_delay_map(pos))
         protocol.ctrl_stop(id)
 
     async def send_test():
         ID = 0xe2
+        import random
+        rnd_direction = random.choice([Direction.CW, Direction.CCW])
+        rnd_spd = random.randint(20, 120)
+        rnd_time = random.randint(3, 8)
+        protocol.ctrl_speed(ID, rnd_direction, rnd_spd)
+        await asyncio.sleep(rnd_time)
         await to_zero(ID)
 
         await asyncio.sleep(1)
