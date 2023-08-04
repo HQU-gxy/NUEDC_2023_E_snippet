@@ -17,7 +17,7 @@ class MotorProtocol(asyncio.Protocol):
     def connection_made(self, transport):
         self.transport = transport
         logger.info('port opened')
-        transport.serial.rts = False
+        transport.serial.rts = False # type: ignore
 
     def data_received(self, data):
         flag_str = "T" if self._chan_recv_flag else "F"
@@ -27,22 +27,23 @@ class MotorProtocol(asyncio.Protocol):
 
     def connection_lost(self, exc):
         logger.info('port closed')
-        self.transport.loop.stop()
+        self.transport.loop.stop() # type: ignore
 
     def pause_writing(self):
         logger.debug('pause writing; buffer size {}',
-                     self.transport.get_write_buffer_size())
+                     self.transport.get_write_buffer_size()) # type: ignore
 
     def resume_writing(self):
         logger.debug('resume writing; buffer size {}',
-                     self.transport.get_write_buffer_size())
+                     self.transport.get_write_buffer_size()) # type: ignore
 
     async def read_encoder(self, id: int):
         try:
             data = read_encoder_pkt(id)
             self._chan_recv_flag = True
-            self.transport.write(data)
+            self.transport.write(data) # type: ignore
             res = await self._chan.take()
+            assert isinstance(res, bytes)
             self._chan_recv_flag = False
             fmt = "!BH"
             encoder: int
@@ -54,15 +55,16 @@ class MotorProtocol(asyncio.Protocol):
         except Exception as e:
             self._chan_recv_flag = False
             logger.error(e)
-            asyncio.sleep(0.02)
+            await asyncio.sleep(0.02)
             return await self.read_encoder(id)
 
     async def read_input_pulse_count(self, id: int):
         try:
             data = read_input_pulse_count_pkt(id)
             self._chan_recv_flag = True
-            self.transport.write(data)
+            self.transport.write(data) # type: ignore
             res = await self._chan.take()
+            assert isinstance(res, bytes)
             self._chan_recv_flag = False
             fmt = "!BI"
             input_pulse_count: int
@@ -74,7 +76,7 @@ class MotorProtocol(asyncio.Protocol):
         except Exception as e:
             self._chan_recv_flag = False
             logger.error(e)
-            asyncio.sleep(0.02)
+            await asyncio.sleep(0.02)
             return await self.read_input_pulse_count(id)
 
     # unit: max_uint16_t / 360
@@ -101,7 +103,7 @@ class MotorProtocol(asyncio.Protocol):
         except Exception as e:
             self._chan_recv_flag = False
             logger.error(e)
-            asyncio.sleep(0.02)
+            await asyncio.sleep(0.02)
             return await self.read_position(id)
     
     async def read_position_deg(self, id: int):
@@ -126,7 +128,7 @@ class MotorProtocol(asyncio.Protocol):
         except Exception as e:
             self._chan_recv_flag = False
             logger.error(e)
-            asyncio.sleep(0.02)
+            await asyncio.sleep(0.02)
             return await self.read_position_err(id)
 
     # 0: error
@@ -148,6 +150,7 @@ class MotorProtocol(asyncio.Protocol):
         self._chan_recv_flag = True
         self.transport.write(data)
         res = await self._chan.take()
+        assert isinstance(res, bytes)
         self._chan_recv_flag = False
         fmt = "!BB"
         stuck_flag: int
@@ -155,6 +158,7 @@ class MotorProtocol(asyncio.Protocol):
         return stuck_flag
 
     def ctrl_speed(self, id: int, direction: Direction, speed: int):
+        speed = int(speed)
         data = ctrl_speed_pkt(id, direction, speed)
         logger.debug("direction:{} speed:{}".format(direction, speed))
         self.transport.write(data)

@@ -70,7 +70,7 @@ def ctrl_en_close_loop_pkt(id: int, en: bool):
 def ctrl_speed_pkt(id: int, direction: Direction, speed: int):
     direction = direction.value
     assert (speed >= 0 and speed < 128)
-    s = (((direction & 0x01) << 7) & 0xff) | (speed & 0xff)
+    s = ((direction & 0x01) << 7) | (speed & 0xff)
     data = struct.pack('>B', s)
     return serialize(id, CTRL_SPEED, data)
 
@@ -78,7 +78,7 @@ def ctrl_speed_pkt(id: int, direction: Direction, speed: int):
 def ctrl_speed_with_pulse_count_pkt(id: int, direction: Direction, speed: int, pulse_count: int):
     direction = direction.value
     assert (speed >= 0 and speed < 128)
-    s = (((direction & 0x01) << 7) & 0xff) | (speed & 0xff)
+    s = ((direction & 0x01) << 7) | (speed & 0xff)
     data = struct.pack('>B3s', s, pulse_count.to_bytes(3, 'big'))
     return serialize(id, CTRL_SPEED_WITH_PULSE_CNT, data)
 
