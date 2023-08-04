@@ -84,7 +84,7 @@ class MotorProtocol(asyncio.Protocol):
     # 655350 for 10 circles
     async def read_position(self, id: int):
         return await self.read_wrapper(id, lambda: self.transport.write(read_position_pkt(id)),
-                                       lambda res: struct.unpack("!BI", res)[1])
+                                       lambda res: struct.unpack("!Bi", res)[1])
 
     async def read_position_deg(self, id: int):
         pos = await self.read_position(id)

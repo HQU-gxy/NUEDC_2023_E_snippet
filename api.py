@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from motor.motor import Motor
 
+# https://stackoverflow.com/questions/29269370/how-to-properly-create-and-run-concurrent-tasks-using-pythons-asyncio-module
 @click.command()
 @click.option("--port", "-p", help='Serial port', required=True)
 @click.option("--baudrate", "-b", default=38400, help='Baudrate')
