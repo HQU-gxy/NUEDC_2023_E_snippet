@@ -107,7 +107,8 @@ class MotorProtocol(asyncio.Protocol):
     def ctrl_speed(self, id: int, direction: Direction, speed: int):
         speed = int(speed)
         data = ctrl_speed_pkt(id, direction, speed)
-        logger.debug("direction:{} speed:{}".format(direction, speed))
+        logger.debug("[{:02x}] direction:{} speed:{}".format(
+            id, direction, speed))
         self.transport.write(data)
 
     def ctrl_en_close_loop(self, id: int, en: bool):
@@ -121,8 +122,8 @@ class MotorProtocol(asyncio.Protocol):
     def ctrl_speed_with_pulse_count(self, id: int, direction: Direction, speed: int, pulse_count: int):
         data = ctrl_speed_with_pulse_count_pkt(
             id, direction, speed, pulse_count)
-        logger.debug("direction:{} speed:{} pulse_count:{}".format(
-            direction, speed, pulse_count))
+        logger.debug("[{:02x}] direction:{} speed:{} pulse_count:{}".format(
+            id, direction, speed, pulse_count))
         self.transport.write(data)
 
     def set_division(self, id: int, division: int):

@@ -88,7 +88,7 @@ class Motor:
             self.last_motion = Motion(spd, direction)
             await asyncio.sleep(pos_delay_map(self.last_position_deg))
             self.last_position_deg = await self.protocol.read_position_deg(self.id)
-            logger.debug("pos: {}".format(self.last_position_deg))
+            logger.debug("[{:02x}] position: {}".format(self.id, self.last_position_deg))
         self.protocol.ctrl_stop(self.id)
 
     async def delta_degree(self, delta: float, precision: Optional[float] = None):
