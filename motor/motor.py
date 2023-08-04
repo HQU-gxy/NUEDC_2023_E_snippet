@@ -29,6 +29,8 @@ class Motor:
     delay_ex: ExtremumParams
     delay_piece: PiecewiseLinearParams
     precision: float
+    degree_max: Optional[float]
+    degree_min: Optional[float]
 
     def __init__(self, id: int, protocol: MotorProtocol) -> None:
         MAX_POS_ABS = 18
@@ -42,8 +44,14 @@ class Motor:
         self.delay_ex = ExtremumParams(0, MAX_POS_ABS, 0.005, 0.05)
         self.delay_piece = PiecewiseLinearParams(10, 0.5, 0.8, 2.5)
         self.precision = 0.1
+        self.degree_max = None
+        self.degree_min = None
 
     async def to_degree(self, degree: float, precision):
+        if self.degree_max is not None:
+            degree = min(degree, self.degree_max)
+        if self.degree_min is not None:
+            degree = max(degree, self.degree_min)
         # 5ms
         D = 0.005
 
