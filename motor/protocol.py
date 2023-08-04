@@ -38,52 +38,96 @@ class MotorProtocol(asyncio.Protocol):
                      self.transport.get_write_buffer_size())
 
     async def read_encoder(self, id: int):
-        data = read_encoder_pkt(id)
-        self._chan_recv_flag = True
-        self.transport.write(data)
-        res = await self._chan.take()
-        self._chan_recv_flag = False
-        fmt = "!BH"
-        encoder: int
-        _, encoder = struct.unpack(fmt, res)
-        return encoder
+        try:
+            data = read_encoder_pkt(id)
+            self._chan_recv_flag = True
+            self.transport.write(data)
+            res = await self._chan.take()
+            self._chan_recv_flag = False
+            fmt = "!BH"
+            encoder: int
+            _, encoder = struct.unpack(fmt, res)
+            return encoder
+        except KeyboardInterrupt:
+            self._chan_recv_flag = False
+            raise KeyboardInterrupt
+        except Exception as e:
+            self._chan_recv_flag = False
+            logger.error(e)
+            asyncio.sleep(0.02)
+            return await self.read_encoder(id)
 
     async def read_input_pulse_count(self, id: int):
-        data = read_input_pulse_count_pkt(id)
-        self._chan_recv_flag = True
-        self.transport.write(data)
-        res = await self._chan.take()
-        self._chan_recv_flag = False
-        fmt = "!BI"
-        input_pulse_count: int
-        _, input_pulse_count = struct.unpack(fmt, res)
-        return input_pulse_count
+        try:
+            data = read_input_pulse_count_pkt(id)
+            self._chan_recv_flag = True
+            self.transport.write(data)
+            res = await self._chan.take()
+            self._chan_recv_flag = False
+            fmt = "!BI"
+            input_pulse_count: int
+            _, input_pulse_count = struct.unpack(fmt, res)
+            return input_pulse_count
+        except KeyboardInterrupt:
+            self._chan_recv_flag = False
+            raise KeyboardInterrupt
+        except Exception as e:
+            self._chan_recv_flag = False
+            logger.error(e)
+            asyncio.sleep(0.02)
+            return await self.read_input_pulse_count(id)
 
     # unit: max_uint16_t / 360
     # i.e. 65535 for a full circle
     # 655350 for 10 circles
     async def read_position(self, id: int):
-        data = read_position_pkt(id)
-        self._chan_recv_flag = True
-        self.transport.write(data)
-        res = await self._chan.take()
-        self._chan_recv_flag = False
-        fmt = "!BI"
-        position: int
-        _, position = struct.unpack(fmt, res)
-        return position
+        try:
+            data = read_position_pkt(id)
+            self._chan_recv_flag = True
+            self.transport.write(data)
+            res = await self._chan.take()
+            self._chan_recv_flag = False
+            # signed
+            # positive: CW
+            # negative: CCW
+            # i.e. CW would make the position decrease
+            fmt = "!Bi"
+            position: int
+            _, position = struct.unpack(fmt, res)
+            return position
+        except KeyboardInterrupt:
+            self._chan_recv_flag = False
+            raise KeyboardInterrupt
+        except Exception as e:
+            self._chan_recv_flag = False
+            logger.error(e)
+            asyncio.sleep(0.02)
+            return await self.read_position(id)
+    
+    async def read_position_deg(self, id: int):
+        pos = await self.read_position(id)
+        return pos / 65535 * 360
 
     # unit: max_uint16_t / 360
     async def read_position_err(self, id: int):
-        data = read_position_error_pkt(id)
-        self._chan_recv_flag = True
-        self.transport.write(data)
-        res = await self._chan.take()
-        self._chan_recv_flag = False
-        fmt = "!BH"
-        position_err: int
-        _, position_err = struct.unpack(fmt, res)
-        return position_err
+        try:
+            data = read_position_error_pkt(id)
+            self._chan_recv_flag = True
+            self.transport.write(data)
+            res = await self._chan.take()
+            self._chan_recv_flag = False
+            fmt = "!BH"
+            position_err: int
+            _, position_err = struct.unpack(fmt, res)
+            return position_err
+        except KeyboardInterrupt:
+            self._chan_recv_flag = False
+            raise KeyboardInterrupt
+        except Exception as e:
+            self._chan_recv_flag = False
+            logger.error(e)
+            asyncio.sleep(0.02)
+            return await self.read_position_err(id)
 
     # 0: error
     # 1: enabled
