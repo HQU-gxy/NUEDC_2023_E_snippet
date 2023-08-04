@@ -104,6 +104,9 @@ class Motor:
         self.degree_min = degree_min
         self.degree_max = degree_max
 
+    async def get_degree(self):
+        return await self.protocol.read_position_deg(self.id)
+
 
 class RotateTiltMotor:
     rotate_motor: Motor
@@ -129,3 +132,9 @@ class RotateTiltMotor:
     def set_degree_range(self, rotate_degree_range: Tuple[float, float], tilt_degree_range: Tuple[float, float]):
         self.rotate_motor.set_degree_range(*rotate_degree_range)
         self.tilt_motor.set_degree_range(*tilt_degree_range)
+    
+    async def get_degree(self):
+        # should not get the degree at the same time
+        r = await self.rotate_motor.get_degree()
+        t = await self.tilt_motor.get_degree()
+        return (r, t)
