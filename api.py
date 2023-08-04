@@ -1,4 +1,5 @@
-from motor.protocol import MotorProtocol
+from motor.protocol import MotorProtocol, Direction
+from loguru import logger
 import asyncio
 import serial_asyncio
 import click
@@ -15,26 +16,17 @@ def main(port: str, baudrate: int):
 
     async def send_test():
         ID = 0xe2
-        # await asyncio.sleep(0.1)
-        # data = ctrl_en_close_loop_pkt(ID, True)
-        # transport.write(data)
-        # await asyncio.sleep(0.1)
-        # data = read_en_close_loop_pkt(ID)
-        # await asyncio.sleep(0.1)
-        # data = set_division_pkt(ID, 255)
-        # while True:
-        #     data = ctrl_speed_pkt(ID, Direction.CCW, 100)
-        #     transport.write(data)
-        #     await asyncio.sleep(2)
-        #     data = ctrl_speed_pkt(ID, Direction.CCW, 120)
-        #     transport.write(data)
-        #     await asyncio.sleep(2)
-        #     data = ctrl_speed_pkt(ID, Direction.CCW, 127)
-        #     transport.write(data)
-        #     await asyncio.sleep(2)
-        #     data = ctrl_stop_pkt(ID)
-        #     transport.write(data)
-        #     await asyncio.sleep(3)
+        while True:
+          protocol.ctrl_speed(ID, Direction.CW, 100)
+          await asyncio.sleep(1)
+          protocol.ctrl_speed(ID, Direction.CCW, 100)
+          await asyncio.sleep(1)
+          protocol.ctrl_stop(ID)
+          await asyncio.sleep(0.05)
+          pos = await  protocol.read_position(ID)
+          logger.info("pos: {}".format(pos))
+          
+          await asyncio.sleep(2)
 
     loop.create_task(send_test())
     loop.run_forever()
