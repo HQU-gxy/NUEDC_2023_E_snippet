@@ -6,8 +6,7 @@ from .mapper import PiecewiseLinearParams, ExtremumParams, piecewise_linear_mapp
 from .utils import Instance
 from loguru import logger
 import asyncio
-from typing import Optional, Tuple
-
+from typing import Optional, Tuple, Union
 
 @dataclass
 class Motion:
@@ -47,6 +46,7 @@ class Motor:
         self.precision = 0.1
         self.degree_max = None
         self.degree_min = None
+        self.protocol.register_device(self.id)
 
     async def to_degree(self, degree: float, precision: Optional[float] = None):
         precision = precision or self.precision
@@ -57,7 +57,7 @@ class Motor:
         # 5ms
         D = 0.005
 
-        def is_in_range(pos: int | float, target: int | float, err: int | float):
+        def is_in_range(pos: Union[int, float], target: Union[int, float], err: Union[int, float]):
             return abs(pos - target) < err
 
         def pos_spd_map(pos): return piecewise_linear_mapper(
@@ -91,7 +91,7 @@ class Motor:
             logger.debug("pos: {}".format(self.last_position_deg))
         self.protocol.ctrl_stop(self.id)
 
-    async def delta_degree(self, delta: float, precision: float | None = None):
+    async def delta_degree(self, delta: float, precision: Optional[float] = None):
         deg = await self.protocol.read_position_deg(self.id)
         self.last_position_deg = deg
         assert isinstance(self.last_position_deg, float)

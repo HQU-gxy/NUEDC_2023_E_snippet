@@ -4,15 +4,15 @@ from asyncio_channel import create_channel
 from asyncio_channel._channel import Channel
 from .utils import hex_bytes
 from .pkt import *
+from typing import Optional, Tuple, Union, List, Dict
 
 
 class MotorProtocol(asyncio.Protocol):
-    _chan_recv_flag:bool = False
-    _chan: Channel
+    _chans: Dict[int, Tuple[bool, Channel]]
 
     def __init__(self) -> None:
         super().__init__()
-        self._chan = create_channel()
+        _chans = {}
 
     def connection_made(self, transport):
         self.transport = transport
@@ -22,8 +22,15 @@ class MotorProtocol(asyncio.Protocol):
     def data_received(self, data):
         flag_str = "T" if self._chan_recv_flag else "F"
         logger.debug("[{}] received: {}".format(flag_str, hex_bytes(data)))
-        if (self._chan_recv_flag):
-            self._chan.offer(data)
+        id = data[0]
+        if (id in self._chans):
+            ok, chan = self._chans[id]
+            if ok:
+               chan.offer(data)
+            else:
+               logger.warning("{:02x} channel not ready".format(id))
+        else:
+            logger.warning("{:02x} channel not registered".format(id))
 
     def connection_lost(self, exc):
         logger.info('port closed')
@@ -37,12 +44,17 @@ class MotorProtocol(asyncio.Protocol):
         logger.debug('resume writing; buffer size {}',
                      self.transport.get_write_buffer_size()) # type: ignore
 
+    def register_device(self, id: int):
+        self._chans[id] = (False, create_channel())
+
     async def read_encoder(self, id: int):
+        if (id not in self._chans):
+            raise Exception("device {:02x} not registered".format(id))
         try:
             data = read_encoder_pkt(id)
             self._chan_recv_flag = True
             self.transport.write(data) # type: ignore
-            res = await self._chan.take()
+            res = await self._chans[id][1].take()
             assert isinstance(res, bytes)
             self._chan_recv_flag = False
             fmt = "!BH"
@@ -59,11 +71,13 @@ class MotorProtocol(asyncio.Protocol):
             return await self.read_encoder(id)
 
     async def read_input_pulse_count(self, id: int):
+        if (id not in self._chans):
+            raise Exception("device {:02x} not registered".format(id))
         try:
             data = read_input_pulse_count_pkt(id)
             self._chan_recv_flag = True
             self.transport.write(data) # type: ignore
-            res = await self._chan.take()
+            res = await self._chans[id][1].take()
             assert isinstance(res, bytes)
             self._chan_recv_flag = False
             fmt = "!BI"
@@ -83,11 +97,13 @@ class MotorProtocol(asyncio.Protocol):
     # i.e. 65535 for a full circle
     # 655350 for 10 circles
     async def read_position(self, id: int):
+        if (id not in self._chans):
+            raise Exception("device {:02x} not registered".format(id))
         try:
             data = read_position_pkt(id)
             self._chan_recv_flag = True
             self.transport.write(data)
-            res = await self._chan.take()
+            res = await self._chans[id][1].take()
             self._chan_recv_flag = False
             # signed
             # positive: CW
@@ -112,11 +128,13 @@ class MotorProtocol(asyncio.Protocol):
 
     # unit: max_uint16_t / 360
     async def read_position_err(self, id: int):
+        if (id not in self._chans):
+            raise Exception("device {:02x} not registered".format(id))
         try:
             data = read_position_error_pkt(id)
             self._chan_recv_flag = True
             self.transport.write(data)
-            res = await self._chan.take()
+            res = await self._chans[id][1].take()
             self._chan_recv_flag = False
             fmt = "!BH"
             position_err: int
@@ -135,27 +153,10 @@ class MotorProtocol(asyncio.Protocol):
     # 1: enabled
     # 2: disabled
     async def read_en_close_loop(self, id: int):
-        data = read_en_close_loop_pkt(id)
-        self._chan_recv_flag = True
-        self.transport.write(data)
-        res = await self._chan.take()
-        self._chan_recv_flag = False
-        fmt = "!BB"
-        en_close_loop: int
-        _, en_close_loop = struct.unpack(fmt, res)
-        return en_close_loop
+        raise NotImplementedError
 
     async def read_stuck_flag(self, id: int):
-        data = read_stuck_flag_pkt(id)
-        self._chan_recv_flag = True
-        self.transport.write(data)
-        res = await self._chan.take()
-        assert isinstance(res, bytes)
-        self._chan_recv_flag = False
-        fmt = "!BB"
-        stuck_flag: int
-        _, stuck_flag = struct.unpack(fmt, res)
-        return stuck_flag
+        raise NotImplementedError
 
     def ctrl_speed(self, id: int, direction: Direction, speed: int):
         speed = int(speed)
