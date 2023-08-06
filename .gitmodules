@@ -7,3 +7,6 @@
 [submodule "MiDaS"]
 	path = MiDasRepo
 	url = https://github.com/isl-org/MiDaS
+[submodule "mlsd_pytorch"]
+	path = mlsd_pytorch
+	url = https://github.com/lhwcv/mlsd_pytorch
