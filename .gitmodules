@@ -4,3 +4,6 @@
 [submodule "components/spdlog"]
 	path = components/spdlog
 	url = https://github.com/gabime/spdlog
+[submodule "MiDaS"]
+	path = MiDasRepo
+	url = https://github.com/isl-org/MiDaS

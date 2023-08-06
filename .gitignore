@@ -31,6 +31,13 @@
 *.out
 *.app
 
+# download from
+# https://github.com/isl-org/MiDaS
+# https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_swin2_tiny_256.pt
+dpt_swin2_tiny_256.pt
+
+output.avi
+
 build
 
 compile_commands.json
