@@ -1,6 +1,5 @@
 from typing import Optional
 from motor.protocol import MotorProtocol, Direction
-from motor.mapper import PiecewiseLinearParams, ExtremumParams, piecewise_linear_mapper
 from loguru import logger
 import asyncio
 import serial_asyncio

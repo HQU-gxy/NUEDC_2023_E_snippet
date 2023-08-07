@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from .pkt import *
 from typing import Optional
 from .protocol import MotorProtocol, Direction
-from .mapper import PiecewiseLinearParams, ExtremumParams, piecewise_linear_mapper
 from .utils import Instant
 from loguru import logger
 import asyncio

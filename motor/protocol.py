@@ -4,19 +4,21 @@ from asyncio_channel import create_channel
 from asyncio_channel._channel import Channel
 from .utils import hex_bytes
 from .pkt import *
-from typing import Optional, Tuple, Union, List, Dict, Callable, TypeVar
+from typing import Any, Coroutine, Optional, Tuple, Union, List, Dict, Callable, TypeVar
+from serial_asyncio import SerialTransport
 
 T = TypeVar('T')
 
 
 class MotorProtocol(asyncio.Protocol):
     _chans: Dict[int, Tuple[bool, Channel]]
+    transport: SerialTransport
 
     def __init__(self) -> None:
         super().__init__()
         self._chans = {}
 
-    def connection_made(self, transport):
+    def connection_made(self, transport: SerialTransport):
         self.transport = transport
         logger.info('port opened')
         transport.serial.rts = False  # type: ignore
@@ -49,51 +51,60 @@ class MotorProtocol(asyncio.Protocol):
         logger.info("register device {:02x}".format(id))
         self._chans[id] = (False, create_channel())
 
-    async def read_wrapper(self, id: int, write_cb: Callable[[], None], handler: Callable[[bytes], T], timeout: float = 0.1):
+    async def read_wrapper(self, id: int, write_action: Callable[[], None], result_handler: Callable[[bytes], T], timeout: float = 0.1) -> T:
         if (id not in self._chans):
-            raise Exception("device {:02x} not registered".format(id))
+            raise ValueError("device {:02x} not registered".format(id))
         try:
             _, chan = self._chans[id]
             self._chans[id] = (True, chan)
-            write_cb()
+            write_action()
             res = await self._chans[id][1].take(timeout=timeout)
+            if res == None:
+                raise IOError("read timeout")
             assert isinstance(res, bytes)
             self._chans[id] = (False, chan)
-            return handler(res)
+            return result_handler(res)
         except KeyboardInterrupt:
             _, chan = self._chans[id]
             self._chans[id] = (False, chan)
             raise KeyboardInterrupt
-        except Exception as e:
-            _, chan = self._chans[id]
-            self._chans[id] = (False, chan)
-            logger.error(e)
-            await asyncio.sleep(0.02)
-            return await self.read_encoder(id)
 
-    async def read_encoder(self, id: int):
-        return await self.read_wrapper(id, lambda: self.transport.write(read_encoder_pkt(id)),
-                                       lambda res: struct.unpack("!BH", res)[1])
+    async def retry_read_wrapper(self, fn: Callable[[], Coroutine[Any, Any, T]], max_retry_times: int = 3) -> T:
+        for i in range(max_retry_times):
+            try:
+                return await fn()
+            except IOError:
+                logger.warning(
+                    "retrying read {} for device {:02x}".format(i, id))
+        raise IOError("read failed for device {:02x}".format(id))
 
-    async def read_input_pulse_count(self, id: int):
-        return await self.read_wrapper(id, lambda: self.transport.write(read_input_pulse_count_pkt(id)),
-                                       lambda res: struct.unpack("!BI", res)[1])
+    async def read_encoder(self, id: int, timeout: float = 0.1, max_retry_times: int = 3):
+        def fn(): return self.read_wrapper(id, lambda: self.transport.write(read_encoder_pkt(id)),
+                                           lambda res: struct.unpack("!BH", res)[1], timeout=timeout)
+        return await self.retry_read_wrapper(fn, max_retry_times)
+
+    async def read_input_pulse_count(self, id: int, timeout=0.1, max_retry_times=3):
+        def fn(): return self.read_wrapper(id, lambda: self.transport.write(read_input_pulse_count_pkt(id)),
+                                           lambda res: struct.unpack("!BI", res)[1], timeout=timeout)
+        return await self.retry_read_wrapper(fn, max_retry_times)
 
     # unit: max_uint16_t / 360
     # i.e. 65535 for a full circle
     # 655350 for 10 circles
-    async def read_position(self, id: int, timeout: float = 0.1):
-        return await self.read_wrapper(id, lambda: self.transport.write(read_position_pkt(id)),
-                                       lambda res: struct.unpack("!Bi", res)[1], timeout=timeout)
+    async def read_position(self, id: int, timeout: float = 0.1, max_retry_times: int = 3):
+        def fn(): return self.read_wrapper(id, lambda: self.transport.write(read_position_pkt(id)),
+                                           lambda res: struct.unpack("!Bi", res)[1], timeout=timeout)
+        return await self.retry_read_wrapper(fn, max_retry_times)
 
-    async def read_position_deg(self, id: int):
-        pos = await self.read_position(id)
+    async def read_position_deg(self, id: int, timeout: float = 0.1, max_retry_times: int = 3):
+        pos = await self.read_position(id, timeout=timeout, max_retry_times=max_retry_times)
         return pos / 65535 * 360
 
     # unit: max_uint16_t / 360
-    async def read_position_err(self, id: int):
-        return await self.read_wrapper(id, lambda: self.transport.write(read_position_err_pkt(id)),
-                                       lambda res: struct.unpack("!BH", res)[1])
+    async def read_position_err(self, id: int, timeout: float = 0.1, max_retry_times: int = 3):
+        def fn(): return self.read_wrapper(id, lambda: self.transport.write(read_position_error_pkt(id)),
+                                           lambda res: struct.unpack("!BH", res)[1], timeout=timeout)
+        return await self.retry_read_wrapper(fn, max_retry_times)
 
     # 0: error
     # 1: enabled
@@ -120,7 +131,7 @@ class MotorProtocol(asyncio.Protocol):
         self.transport.write(data)
 
     def ctrl_speed_with_pulse_count(self, id: int, direction: Direction, speed: int, pulse_count: int):
-        assert(pulse_count > 0)
+        assert (pulse_count > 0)
         data = ctrl_speed_with_pulse_count_pkt(
             id, direction, speed, pulse_count)
         logger.debug("[{:02x}] direction:{} speed:{} pulse_count:{}".format(
