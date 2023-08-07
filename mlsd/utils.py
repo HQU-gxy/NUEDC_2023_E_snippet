@@ -196,18 +196,6 @@ def pred_squares(image,
     idx_map[yx_indices[:, 0], yx_indices[:, 1]] = indices
 
     acc_map_np = acc_map
-    # acc_map = acc_map[None, :, :, None]
-    #
-    # ### fast suppression using tensorflow op
-    # acc_map = tf.constant(acc_map, dtype=tf.float32)
-    # max_acc_map = tf.keras.layers.MaxPool2D(pool_size=(5, 5), strides=1, padding='same')(acc_map)
-    # acc_map = acc_map * tf.cast(tf.math.equal(acc_map, max_acc_map), tf.float32)
-    # flatten_acc_map = tf.reshape(acc_map, [1, -1])
-    # topk_values, topk_indices = tf.math.top_k(flatten_acc_map, k=len(pts))
-    # _, h, w, _ = acc_map.shape
-    # y = tf.expand_dims(topk_indices // w, axis=-1)
-    # x = tf.expand_dims(topk_indices % w, axis=-1)
-    # yx = tf.concat([y, x], axis=-1)
 
     # fast suppression using pytorch op
     acc_map = torch.from_numpy(acc_map_np).unsqueeze(0).unsqueeze(0)
