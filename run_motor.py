@@ -17,9 +17,8 @@ def main(port: str, baudrate: int):
     routine = serial_asyncio.create_serial_connection(
         loop, MotorProtocol, port, baudrate=baudrate)
     protocol: MotorProtocol
-    transport, protocol = loop.run_until_complete(routine)
+    _, protocol = loop.run_until_complete(routine)
     ID = 0xe0
-    ERR = 0.04
     motor = Motor(ID, protocol)
     motor.begin()
 
@@ -30,7 +29,7 @@ def main(port: str, baudrate: int):
         rnd_time = random.randint(3, 8)
         protocol.ctrl_speed(ID, rnd_direction, rnd_spd)
         await asyncio.sleep(rnd_time)
-        await motor.to_degree(0, ERR)
+        await motor.to_degree_with_new_reading(100, 0)
 
         await asyncio.sleep(1)
         while True:

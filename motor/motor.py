@@ -19,17 +19,17 @@ def reverse_direction(direction: Direction):
 
 
 def degree_to_pulse(degree: float, division: int, step_angle: float = 1.8):
-    # I assume the motor is 1.8 degree
-    origin_div = 360 / step_angle
-    enhanced_div = origin_div * division
-    one_deg_pulse = enhanced_div / 360
+    # origin_div = 360 / step_angle
+    # enhanced_div = origin_div * division
+    # one_deg_pulse = enhanced_div / 360
+    one_deg_pulse = step_angle / division
     return int(degree * one_deg_pulse)
 
 
 class Motor:
     id: int
     protocol: MotorProtocol
-    last_position_deg: float
+    last_position_deg: Optional[float] 
     last_write: Instant
     degree_max: Optional[float]
     degree_min: Optional[float]
@@ -40,7 +40,7 @@ class Motor:
         MAX_POS_ABS = 18
         self.id = id
         self.protocol = protocol
-        self.last_position_deg = 0.0
+        self.last_position_deg = None
         self.last_write = Instant()
         self.degree_max = None
         self.degree_min = None
@@ -60,8 +60,19 @@ class Motor:
         self.division = division
         self.protocol.set_division(self.id, division)
 
-    async def to_degree(self, speed: int, degree: float):
-        self.last_position_deg = await self.protocol.read_position_deg(self.id)
+    def to_degree(self, speed:int, degree:float):
+        assert self.last_position_deg is not None
+        if self.degree_max is not None and degree > self.degree_max:
+            degree = self.degree_max
+        if self.degree_min is not None and degree < self.degree_min:
+            degree = self.degree_min
+        delta_angle = degree - self.last_position_deg
+        delta_pulse = degree_to_pulse(delta_angle, self.division)
+        self.protocol.ctrl_speed_with_pulse_count(
+            self.id, Direction.CW, speed, delta_pulse)
+
+    async def to_degree_with_new_reading(self, speed: int, degree: float, timeout=0.1, max_retry_times=3):
+        self.last_position_deg = await self.protocol.read_position_deg(self.id, timeout=timeout, max_retry_times=max_retry_times)
         if self.degree_max is not None and degree > self.degree_max:
             degree = self.degree_max
         if self.degree_min is not None and degree < self.degree_min:
@@ -98,6 +109,7 @@ class Motor:
 
         # 支持 1~256 任意细分
         # 设置细分步数(默认16细分)
+        assert self.last_position_deg is not None
         self.last_position_deg = self.last_position_deg + delta_deg
         pulse = abs(degree_to_pulse(delta_deg, self.division)) 
         direction = self._positive_direction if delta_deg > 0 else reverse_direction(
@@ -110,8 +122,9 @@ class Motor:
         self.degree_min = degree_min
         self.degree_max = degree_max
 
-    async def get_degree(self):
-        return await self.protocol.read_position_deg(self.id)
+    async def get_degree(self, timeout=0.1, max_retry_times=3):
+        self.last_position_deg = await self.protocol.read_position_deg(self.id, timeout, max_retry_times)
+        return self.last_position_deg
 
 
 class RotateTiltMotor:
@@ -132,18 +145,22 @@ class RotateTiltMotor:
         await asyncio.sleep(0.0025)
         self.tilt_motor.delta_degree(speed, tilt_delta)
 
-    async def to_degree(self, speed: int, rotate_degree: float, tilt_degree: float):
+    def to_degree(self, speed: int, rotate_degree: float, tilt_degree: float):
+        self.rotate_motor.to_degree(speed, rotate_degree)
+        self.tilt_motor.to_degree(speed, tilt_degree)
+
+    async def to_degree_with_new_reading(self, speed: int, rotate_degree: float, tilt_degree: float, timeout=0.1, max_retry_times=3):
         asyncio.gather(
-            self.rotate_motor.to_degree(speed, rotate_degree),
-            self.tilt_motor.to_degree(speed, tilt_degree),
+            self.rotate_motor.to_degree_with_new_reading(speed, rotate_degree, timeout, max_retry_times),
+            self.tilt_motor.to_degree_with_new_reading(speed, tilt_degree, timeout, max_retry_times),
         )
 
     def set_degree_range(self, rotate_degree_range: Tuple[float, float], tilt_degree_range: Tuple[float, float]):
         self.rotate_motor.set_degree_range(*rotate_degree_range)
         self.tilt_motor.set_degree_range(*tilt_degree_range)
 
-    async def get_degree(self):
+    async def get_degree(self, timeout=0.1, max_retry_times=3):
         # should not get the degree at the same time
-        r = await self.rotate_motor.get_degree()
-        t = await self.tilt_motor.get_degree()
+        r = await self.rotate_motor.get_degree(timeout, max_retry_times)
+        t = await self.tilt_motor.get_degree(timeout, max_retry_times)
         return (r, t)
