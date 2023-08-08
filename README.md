@@ -5,7 +5,7 @@
 - finding the vertex of inner rectangle [`rect.ipynb`](rect.ipynb)
 - finding the inner and outer borders of inner rectangle, and construct a path to follow [`pp.ipynb`](pp.ipynb)
 - filter out the background of captured video that is not right on target with [M-LSD](https://github.com/navervision/mlsd) and [MiDaS](https://github.com/isl-org/MiDaS)
-- a async driver of a closed loop module that communicates by UART: [`motor`](motor)
+- a async driver of a step motor controller that communicates by UART: [`motor`](motor)
 
 I'm too lazy to build the whole project/system but I believe you can finish it with these code snippets.
 
