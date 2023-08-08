@@ -1,70 +1,12 @@
-# Simple OpenCV demo
+# Code snippets of NUEDC 2023 E
 
-## Build
+- a minimal example of OpenCV in C++. See also [`build.md`](build.md), which is not actually be used in the final project. However, if you want some speed and don't have a good rig, you have to squeeze every bit of performance out of your computer (or get a better machine)
+- finding the origin point and border or rectangle [`origin_point.ipynb`](origin_point.ipynb)
+- finding the vertex of inner rectangle [`rect.ipynb`](rect.ipynb)
+- finding the inner and outer borders of inner rectangle, and construct a path to follow [`pp.ipynb`](pp.ipynb)
+- filter out the background of captured video that is not right on target with [M-LSD](https://github.com/navervision/mlsd) and [MiDaS](https://github.com/isl-org/MiDaS)
+- a async driver of a closed loop module that communicates by UART: [`motor`](motor)
 
-Don't forget to clone the submodules
+I'm too lazy to build the whole project/system but I believe you can finish it with these code snippets.
 
-```bash
-git submodule update --init --recursive
-```
-
-### Build in Windows
-
-I assume you have installed [MSYS2](https://www.msys2.org/) and [Ninja](https://ninja-build.org/).
-You will get the `OpenCV` by installing `mingw-w64-x86_64-opencv` package.
-
-In the `MSYS2 MinGW x64` terminal, run the following commands:
-
-```bash
-pacman -Syu
-pacman -S base-devel cmake ninja # maybe clang
-pacman -S mingw-w64-x86_64-opencv
-```
-
-I assume you install your `MSYS2` in `C:\msys64`. You could add `C:\msys64\mingw64\bin` to your `PATH`
-environment variable. Maybe it would make your life easier.
-
-```powershell
-mkdir build
-cd build
-# clang which comes with Visual Studio 2019 is not happy with Mingw-w64
-cmake .. -G Ninja -DOpenCV_DIR="C:\msys64\mingw64" -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_COMPILER=gcc
-ninja -j (Invoke-Expression [Environment]::ProcessorCount)
-```
-
-I'm not sure whether OpenCV installed by the [Official Installer](https://opencv.org/releases/)
-or [`vcpkg`](https://vcpkg.io/) would work. 
-
-See also
-
-- [CMakeLists for OpenCV that installed using Vcpkg ](https://gist.github.com/UnaNancyOwen/5061d8c966178b753447e8a9f9ac8cf1)
-- [Use Windows Terminal with MSYS2](https://www.msys2.org/docs/terminals/)
-
-### Build in Linux
-
-#### Install dependencies
-
-##### Ubuntu/Debian
-
-```bash
-sudo apt install build-essential cmake ninja-build
-sudo apt install libopencv-dev
-```
-
-##### Arch Linux
-
-```bash
-pacman -S base-devel cmake ninja
-pacman -S opencv
-```
-
-##### Build
-
-This is a typical out-of-source build. Trivially, you can run the following commands:
-
-```bash
-mkdir build
-cd build
-cmake .. -G Ninja
-ninja -j$(nproc)
-```
+~~By the way I don't have much knowledge on step motor/servo motor. I just focus on vision processing.~~

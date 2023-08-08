@@ -1,0 +1,17 @@
+# Basic
+numpy==1.23.4
+opencv_python==4.8.0.74
+
+# M-LSD & MiDaS
+external==0.0.1
+imutils==0.5.4
+openvino==2023.0.1
+timm==0.6.13
+# torch 1.13 or torch 2.x
+torch
+torchvision
+
+# motor driver
+asyncio_channel==0.9.1
+loguru==0.7.0
+pyserial_asyncio==0.6
