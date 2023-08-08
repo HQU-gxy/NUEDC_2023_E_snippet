@@ -4,3 +4,9 @@
 [submodule "components/spdlog"]
 	path = components/spdlog
 	url = https://github.com/gabime/spdlog
+[submodule "MiDaS"]
+	path = midas/MiDaS
+	url = https://github.com/isl-org/MiDaS
+[submodule "mlsd_pytorch"]
+	path = mlsd/mlsd_pytorch
+	url = https://github.com/lhwcv/mlsd_pytorch
