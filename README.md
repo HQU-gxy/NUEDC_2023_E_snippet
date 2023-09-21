@@ -1,6 +1,5 @@
 # Code snippets of NUEDC 2023 E
 
-- a minimal example of OpenCV in C++. See also [`build.md`](build.md), which is not actually be used in the final project. However, if you want some speed and don't have a good rig, you have to squeeze every bit of performance out of your computer (or get a better machine)
 - finding the origin point and border or rectangle [`origin_point.ipynb`](origin_point.ipynb)
 - finding the vertex of inner rectangle [`rect.ipynb`](rect.ipynb)
 - finding the inner and outer borders of inner rectangle, and construct a path to follow [`pp.ipynb`](pp.ipynb)
